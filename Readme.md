@@ -77,3 +77,8 @@ supabase functions deploy parse-receipt --no-verify-jwt
 supabase functions deploy analyze-stock-health
 supabase functions deploy generate-order-text
 ```
+
+API Contract 
+
+https://registry.scalar.com/@default-team-vn4v7/apis/restock-ai-api/latest
+

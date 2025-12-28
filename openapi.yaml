@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Toko UMKM AI API
+  title: Restock AI API
   description: >-
     API Documentation for AI Stock Agent.
     NOTE: This spec reflects the ACTUAL implementation and overrides the initial PDF Blueprint.

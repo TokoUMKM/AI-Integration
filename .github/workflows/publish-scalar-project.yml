@@ -17,8 +17,10 @@ jobs:
         with:
           node-version: 20
 
+      # LANGKAH 1: Login dulu untuk membuat sesi (Auth)
+      - name: Login to Scalar
+        run: npx @scalar/cli auth login --token ${{ secrets.SCALAR_API_KEY }}
+
+      # LANGKAH 2: Publish project (menggunakan sesi dari langkah 1)
       - name: Publish to Scalar
-        env:
-          SCALAR_API_KEY: ${{ secrets.SCALAR_API_KEY }}
-        run: |
-          npx @scalar/cli project publish --slug toko-umkm-backend
+        run: npx @scalar/cli project publish --slug toko-umkm-backend

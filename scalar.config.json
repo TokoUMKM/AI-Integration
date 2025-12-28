@@ -1,0 +1,9 @@
+{
+  "references": [
+    {
+      "name": "Restock AI API",
+      "slug": "AcMp1E45KlKz2tRZpEknb",
+      "path": "./openapi.yaml"
+    }
+  ]
+}

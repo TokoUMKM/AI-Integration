@@ -21,4 +21,4 @@ jobs:
         env:
           SCALAR_API_KEY: ${{ secrets.SCALAR_API_KEY }}
         run: |
-          npx @scalar/cli project publish --slug toko-umkm-backend --token ${{ secrets.SCALAR_API_KEY }}
+          npx @scalar/cli project publish --slug toko-umkm-backend

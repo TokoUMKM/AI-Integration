@@ -1,9 +1,0 @@
-{
-  "references": [
-    {
-      "name": "Toko UMKM API",
-      "slug": "toko-umkm-backend",
-      "path": "./openapi.yaml"
-    }
-  ]
-}

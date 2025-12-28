@@ -23,4 +23,4 @@ jobs:
 
       # LANGKAH 2: Publish project (menggunakan sesi dari langkah 1)
       - name: Publish to Scalar
-        run: npx @scalar/cli project publish 
+        run: npx @scalar/cli project publish --slug restock-ai-api --path ./scalar.config.json

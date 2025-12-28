@@ -1,0 +1,22 @@
+# PROJECT ID (Pastikan ini sesuai dengan project Anda)
+project_id = "toko_umkm_backend"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+# --- KONFIGURASI FUNCTION (Essential) ---
+
+[functions.parse-receipt]
+verify_jwt = true 
+# Kita set TRUE agar aman saat di-deploy (Production).
+# Saat testing local, kita bypass manual pakai flag --no-verify-jwt
+
+[functions.analyze-stock-health]
+verify_jwt = true
+
+[functions.generate-order-text]
+verify_jwt = true

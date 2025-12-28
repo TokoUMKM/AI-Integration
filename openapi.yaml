@@ -1,0 +1,154 @@
+openapi: 3.1.0
+info:
+  title: Toko UMKM AI API
+  description: >-
+    API Documentation for AI Stock Agent.
+    NOTE: This spec reflects the ACTUAL implementation and overrides the initial PDF Blueprint.
+  version: 1.0.0
+servers:
+  - url: https://[PROJECT_REF].supabase.co/functions/v1
+    description: Production Server
+  - url: http://localhost:8000
+    description: Local Dev Server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  /parse-receipt:
+    post:
+      summary: Scan Receipt Image (OCR)
+      description: Extracts items from a receipt image using Gemini Vision.
+      security: [] 
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Receipt image (jpg/png, max 4MB).
+      responses:
+        '200':
+          description: Extraction Successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      supplier_name:
+                        type: string
+                        nullable: true
+                        example: "Indomaret"
+                      transaction_date:
+                        type: string
+                        format: date
+                        nullable: true
+                        example: "2024-01-25"
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "Minyak Goreng"
+                            qty:
+                              type: integer
+                              example: 2
+                            price:
+                              type: integer
+                              example: 35000
+                      summary_text:
+                        type: string
+                        example: "Belanja 2 item di Indomaret."
+
+  /analyze-stock-health:
+    post:
+      summary: Analyze Stock Health (AI Agent)
+      description: Checks user inventory. Returns 'WARNING' status and an AI message if items are running low.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Analysis Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [SAFE, WARNING]
+                    example: "WARNING"
+                  agent_message:
+                    type: string
+                    description: AI-generated urgent message (Bahasa Indonesia).
+                    example: "Bos, gawat! Minyak goreng mau habis besok!"
+                  alerts:
+                    type: array
+                    description: List of critical items.
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        sisa:
+                          type: number
+                        habis_dalam:
+                          type: number
+                          description: Estimated days remaining.
+
+  /generate-order-text:
+    post:
+      summary: Generate WhatsApp Order Draft
+      description: Creates a natural language chat for ordering via WhatsApp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+              properties:
+                supplier_name:
+                  type: string
+                  example: "Ko Hendra"
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      qty:
+                        type: string
+                        description: Supports text units (e.g., "1 kardus")
+      responses:
+        '200':
+          description: Generated Text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Halo Ko Hendra, mau order Minyak Goreng 1 kardus ya."

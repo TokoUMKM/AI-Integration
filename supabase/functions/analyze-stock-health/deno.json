@@ -1,3 +1,7 @@
 {
-  "imports": {}
+  "imports": {
+    "std/": "https://deno.land/std@0.168.0/",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "@google/generative-ai": "npm:@google/generative-ai"
+  }
 }

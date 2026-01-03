@@ -1,105 +1,69 @@
 import { serve } from "std/http/server.ts"
-import { createClient } from "@supabase/supabase-js"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { AiService } from "./ai-service.ts"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+console.log("🚀 Analyzer Started")
 
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-
+serve(async (req) => {
   try {
-    // 1. Setup Clients & Environment
+    const googleApiKey = Deno.env.get('GOOGLE_API_KEY')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const apiKey = Deno.env.get('GOOGLE_API_KEY')
+    const supabaseServiceRoleKey = Deno.env.get('MY_SERVICE_ROLE_KEY') 
 
-    if (!supabaseUrl || !supabaseKey || !apiKey) {
-      throw new Error('Server misconfiguration: Missing ENV variables.')
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    
-    // 2. Auth Validation (Cek siapa yang login)
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Authorization header missing')
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (authError || !user) throw new Error('User tidak valid atau token expired')
-
-    // 3. Fetch Data Real dari Database
-    const { data: products, error: dbError } = await supabase
-      .from('products')
-      .select('name, current_stock, avg_daily_sales')
-      .eq('user_id', user.id) // Hanya ambil data milik user ini
-
-    if (dbError) throw new Error(`Database Error: ${dbError.message}`)
-
-    // 4. Logic Matematika (Burn Rate)
-    const alerts: any[] = []
-
-    if (products && products.length > 0) {
-        products.forEach((p: any) => {
-            // Hindari pembagian dengan nol
-            const burnRate = p.avg_daily_sales > 0 ? p.avg_daily_sales : 0.1
-            const daysRemaining = p.current_stock / burnRate
-            
-            // STATUS: DANGER (< 3 hari), WARNING (< 7 hari)
-            if (daysRemaining < 3) {
-                alerts.push({
-                    name: p.name,
-                    sisa: p.current_stock,
-                    habis_dalam: Math.ceil(daysRemaining)
-                })
-            }
+    if (!googleApiKey || !supabaseUrl || !supabaseServiceRoleKey) {
+        console.error("Missing vars:", { 
+            google: !!googleApiKey, 
+            url: !!supabaseUrl, 
+            key: !!supabaseServiceRoleKey 
         })
+        throw new Error('Missing Env Variables')
+    }
+    // 1. Terima Data Webhook
+    const payload = await req.json()
+    const record = payload.record 
+
+    if (!record || record.current_stock === undefined) {
+      return new Response(JSON.stringify({ message: "No data" }), { headers: { "Content-Type": "application/json" } })
     }
 
-    // 5. Logic AI (Hanya bicara jika ada masalah)
-    let agentMessage = "Stok aman terkendali, Bos. Toko siap tempur!"
-    
-    if (alerts.length > 0) {
-        const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash", 
-            generationConfig: { responseMimeType: "application/json", temperature: 0.8 } 
+    // 2. Logika Cek Stok
+    if (record.current_stock <= record.min_stock) {
+      console.log(`⚠️ Critical: ${record.name}`)
+
+      // 3. Panggil AI
+      const ai = new AiService(googleApiKey)
+      const message = await ai.generateMessage(record.name, record.current_stock, record.unit)
+
+      // 4. Panggil Fungsi 'push-notification'
+      const pushFunctionUrl = `${supabaseUrl}/functions/v1/push-notification`
+      
+      const pushResponse = await fetch(pushFunctionUrl, {
+        method: 'POST',
+        headers: {
+          // [PERBAIKAN 2] Gunakan Service Role Key di sini
+          'Authorization': `Bearer ${supabaseServiceRoleKey}`, 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: message.title,
+          body: message.body,
+          topic: "stock_alerts",
+          data: { product_id: String(record.id), status: "CRITICAL" }
         })
-        
-        const prompt = `
-          Berperanlah sebagai asisten toko yang cerewet, perhatian, dan agak panik.
-          Data stok kritis user ini: ${JSON.stringify(alerts)}
-          
-          Tugas: 
-          1. Lapor ke "Bos" (User).
-          2. Highlight barang yang paling parah (habis_dalam terendah).
-          3. Desak untuk belanja sekarang juga.
-          4. Maksimal 2 kalimat pendek. Bahasa Indonesia santai/pasar.
-          
-          Output JSON: { "message": "teks..." }
-        `
-        
-        const aiResult = await model.generateContent(prompt)
-        const text = aiResult.response.text().replace(/```json|```/g, '').trim()
-        
-        // Safety parsing
-        try {
-            const json = JSON.parse(text)
-            agentMessage = json.message
-        } catch (e) {
-            agentMessage = "Bos, ada stok menipis nih. Cek list di bawah ya!" // Fallback jika AI error
-        }
+      })
+
+      // Cek apakah request berhasil
+      if (!pushResponse.ok) {
+        const errText = await pushResponse.text()
+        console.error(`❌ Gagal memanggil Push Service: ${pushResponse.status} - ${errText}`)
+      } else {
+        const pushResult = await pushResponse.json()
+        console.log("👉 Handed over to Push Service:", pushResult)
+      }
     }
 
-    return new Response(JSON.stringify({
-      status: alerts.length > 0 ? 'WARNING' : 'SAFE',
-      agent_message: agentMessage,
-      alerts: alerts
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ message: "Analysis Done" }), { headers: { "Content-Type": "application/json" } })
 
   } catch (error) {
-    const msg = (error instanceof Error) ? error.message : "Unknown Error"
-    return new Response(JSON.stringify({ error: msg }), { status: 400, headers: corsHeaders })
+    return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: { "Content-Type": "application/json" } })
   }
 })

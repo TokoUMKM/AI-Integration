@@ -22,7 +22,7 @@ serve(async (req: Request) => {
 
     const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash", // Update ke 1.5
+        model: "gemini-2.5-flash", 
         generationConfig: { responseMimeType: "application/json", temperature: 1.0 } 
     })
 

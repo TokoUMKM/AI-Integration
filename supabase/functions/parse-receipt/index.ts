@@ -22,11 +22,11 @@ serve(async (req: Request) => {
     if (!file || !(file instanceof File)) throw new Error('File foto tidak ditemukan.')
     if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran foto max 10MB.')
 
-    // 2. Cek API Key Groq
+    // 2.  API Key Groq
     const apiKey = Deno.env.get('GROQ_API_KEY')
     if (!apiKey) throw new Error('GROQ_API_KEY belum diatur.')
 
-    // 3. Konversi ke Base64 (Safe Mode)
+    // 3. Konversi ke Base64
     const arrayBuffer = await file.arrayBuffer()
     const bytes = new Uint8Array(arrayBuffer)
     let binary = ''
@@ -36,7 +36,7 @@ serve(async (req: Request) => {
     const base64Data = btoa(binary)
     const dataUrl = `data:${file.type};base64,${base64Data}`
 
-    // 4. System Prompt (Instruksi untuk Llama 4 Scout)
+    // 4. System Prompt & Request ke Groq
     const systemPrompt = `
       Anda adalah AI Scanner Struk Belanja (Receipt OCR).
       Tugas: Ekstrak item belanjaan dari gambar struk ke format JSON.
@@ -61,7 +61,6 @@ serve(async (req: Request) => {
       }
     `
 
-    // 5. Kirim ke Groq (Llama 4 Scout)
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -69,7 +68,6 @@ serve(async (req: Request) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        // MODEL BARU DARI ANDA:
         model: "meta-llama/llama-4-scout-17b-16e-instruct", 
         
         messages: [
@@ -81,9 +79,9 @@ serve(async (req: Request) => {
             ]
           }
         ],
-        temperature: 0.1, // Rendah agar akurat membaca angka
+        temperature: 0.1,
         stream: false,
-        response_format: { type: "json_object" } // Paksa output JSON
+        response_format: { type: "json_object" } 
       })
     })
 
